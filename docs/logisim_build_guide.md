@@ -4,6 +4,8 @@ This guide shows how to redraw the verified Verilog design (`rtl/`) in Logisim b
 
 Logisim version: **TODO-fill-in-version-used** (Logisim 2.7.1 and Logisim-evolution have the same components; pin positions and a few attribute names can differ slightly. Hover the mouse over any pin to see its name.)
 
+Shortcuts differ slightly in the original Logisim 2.7.1: Ctrl+T = Tick Once (a half cycle), so press it twice. Always check the Simulate menu.
+
 Components used (all from Logisim's standard libraries):
 
 - **Arithmetic**: Adder, Multiplier, Bit Extender, Comparator
@@ -52,8 +54,8 @@ Open the `PE` circuit (double-click it in the left list), choose the Poke tool (
 
 1. Set `clear` = 1, then back to 0. `acc` = 0.
 2. Set `a_in` = 3 and `b_in` = 4 (click the pin to edit; on an 8-bit pin type the value).
-3. Press **Ctrl+K** once (one clock tick). Expect `acc` = 12, `a_out` = 3, `b_out` = 4.
-4. Press **Ctrl+K** again. Expect `acc` = 24.
+3. Press **F9** once (one full clock cycle, one rising edge). Expect `acc` = 12, `a_out` = 3, `b_out` = 4.
+4. Press **F9** again. Expect `acc` = 24.
 5. Set `clear` = 1 then 0. `acc` back to 0, `a_out` = `b_out` = 0.
 
 If the clock is a `clk` input pin, you can also toggle `clk` 0 -> 1 by clicking it (a rising edge is one tick).
@@ -61,7 +63,7 @@ If the clock is a `clk` input pin, you can also toggle `clk` 0 -> 1 by clicking 
 ## Step (c): the 2x2 array with manually driven inputs
 
 1. Menu **Project > Add Circuit**, name it `main`. Place four copies of `PE` in a 2x2 grid (click the `PE` circuit in the left list, then click in the canvas).
-2. Add a **Clock** (Wiring) and a `clear` input pin. Wire the clock to the `clk` pin of all four PEs and `clear` to the `clear` pin of all four PEs. (If you prefer manual ticking, use a 1-bit input pin as `clk` and toggle it; or use Ctrl+K with a Clock component.)
+2. Add a **Clock** (Wiring) and a `clear` input pin. Wire the clock to the `clk` pin of all four PEs and `clear` to the `clear` pin of all four PEs. (If you prefer manual ticking, use a 1-bit input pin as `clk` and toggle it; or press F9 with a Clock component.)
 3. Add four 8-bit input pins: `row0`, `row1` (left side) and `col0`, `col1` (top).
 4. Wire (this is `systolic_array.v`):
    - `row0` -> PE(0,0).a_in, PE(0,0).a_out -> PE(0,1).a_in
@@ -74,7 +76,7 @@ If the clock is a `clk` input pin, you can also toggle `clk` 0 -> 1 by clicking 
 Run it (set the pins *before* each tick, as the "inputs during cycle t"):
 
 1. `clear` = 1, then 0.
-2. Apply each row below, then press Ctrl+K once:
+2. Apply each row below, then press F9 once:
 
 | Tick | row0 | row1 | col0 | col1 | C00 | C01 | C10 | C11 after the tick |
 |------|------|------|------|------|-----|-----|-----|-----|
@@ -89,7 +91,7 @@ Expected final result: **[[19, 22], [43, 50]]**. This is the table in `docs/hand
 
 Add this control logic to `main` (it is the FSM of `control.v`):
 
-1. **Start**: an input **Pin** (1 bit) named `Start`. (A **Button** also works with a free-running clock. If you step manually with Ctrl+K, use a Pin, because you can click it on, tick, and click it off.)
+1. **Start**: an input **Pin** (1 bit) named `Start`. (A **Button** also works with a free-running clock. If you step manually with F9, use a Pin, because you can click it on, tick, and click it off.)
 2. **run**: a 1-bit **Register** named `run`. Clock = the clock. Enable unconnected.
 3. **t**: a 4-bit **Counter** (Memory), *Data Bits* = 4, *Maximum Value* = 0xF. Clock = the clock. Its enable pin = `busy` (below). Its clear pin = `clear` (below). Its output is `t`.
 4. **done**: a **Comparator** (Arithmetic), *Data Bits* = 4, unsigned. Inputs: `t` and a **Constant** of value 10 (hex A, 4 bits; use 4 for the 2x2 build because 3N-2 = 4). Use its **equal** output as `done`. Add an output pin `done` (and a Hex Digit Display on `t` so you can see the cycle number; 10 shows as "A").
@@ -123,7 +125,7 @@ python logisim/make_rom.py 2 paper_2x2
 ```
 
 5. Load each image: **right-click a ROM > Load Image...** and choose the matching file in `logisim/roms/paper_2x2/` (`A_row0.hex` into the `A_row0` ROM, etc.). Check with the Poke tool: click the ROM and look at its contents (address 0 and 1 hold the values; the rest are 0).
-6. Run: set `Start` = 1, press Ctrl+K once, set `Start` = 0, then press Ctrl+K four more times. Now `t` = 4, `done` = 1 and the probes show **19, 22, 43, 50**.
+6. Run: set `Start` = 1, press F9 once, set `Start` = 0, then press F9 four more times. Now `t` = 4, `done` = 1 and the probes show **19, 22, 43, 50**.
 
 ### Why the ROMs hold unskewed data
 
@@ -149,8 +151,8 @@ Load images: generate the files with `python logisim/make_rom.py 4 hand_picked`,
 
 Run:
 
-- **One tick at a time**: **Ctrl+K** (Simulate > Tick Once).
-- **Automatic**: Simulate > Tick Frequency (choose e.g. 1 Hz), then Simulate > **Tick Enabled** (Ctrl+E). Press Start while it runs; turn Tick Enabled off to freeze the display.
+- **One full clock cycle at a time**: **F9** = one full clock cycle (one rising edge) (Simulate > Manual Tick Full Cycle). Ctrl+T is a half cycle, so press it twice.
+- **Automatic**: Simulate > Tick Frequency (choose e.g. 1 Hz), then Simulate > **Auto Ticks Enabled** (Ctrl+K). Press Start while it runs; turn Auto Ticks Enabled off to freeze the display. (Ctrl+E is Auto propagate, not tick enabling.)
 
 Procedure for each test case:
 
@@ -179,5 +181,5 @@ What to check:
 - **`done` never goes high**: the comparator constant must be 10 for 4x4 (4 for 2x2), 4 bits wide, and you must use the *equal* output.
 - **Wrong C after a second run**: wait one tick after `done` before pressing Start, and make sure Start is released (0) before the next ticks.
 - **ROM shows zeros**: you did not load the image, or you loaded it into the wrong ROM. Re-do **Load Image...**. Images must be in the "v2.0 raw" format (the first line of the file says so).
-- **Nothing happens**: Tick Enabled is off. Use Ctrl+K or turn it on.
+- **Nothing happens**: Auto Ticks Enabled is off. Press F9 or turn it on (Ctrl+K).
 - **Result off by a cycle shift**: row i must have i delay registers and column j must have j delay registers, no more or fewer. The row delay chain must come *after* the ROM.
