@@ -1,4 +1,4 @@
-# Viva notes: 25 likely questions
+# Viva notes: 33 likely questions (25 general, 8 on Logisim)
 
 ## Concept
 
@@ -94,3 +94,31 @@ Change the grid to 8 x 8 (64 PEs) and the loop bounds and bus widths (A/B buses 
 
 **25. What are the limitations?**
 Fixed size 4x4, unsigned only, the whole result is available only at the end (no streaming output), and no overflow detection (it cannot overflow at this size).
+
+## Logisim
+
+The Verilog design is the verified reference model; the Logisim circuit is the same design drawn by hand.
+
+**26. Why do we extend a and b from 8 to 20 bits before the multiplier?**
+A Logisim Multiplier gives an output with the same width as its inputs and drops the upper bits. An 8-bit multiplier would keep only the low 8 bits of the 16-bit product. After zero-extending to 20 bits, the low 20 bits of the result contain the whole product (the largest is 255 x 255 = 65025, which needs 16 bits), and it can be added directly to the 20-bit accumulator.
+
+**27. What do the delay registers do?**
+A register delays its input by one clock. Row i has i registers in a chain, so it delays A by i cycles: the value read from the ROM at cycle t reaches the array at cycle t + i, i.e. the array sees A[i][t-i] at cycle t. Column j has j registers for B. This is the skew; it makes A[i][k] and B[k][j] meet at PE(i,j) at t = i + j + k.
+
+**28. Why do the ROMs hold unskewed data?**
+So the contents are simple to generate and check (row i is just A[i][0], A[i][1], ...), all ROMs use the same address `t`, and the skew is done in one visible place, the delay registers. The Verilog does the same job with the arithmetic `t - i` in the feeder.
+
+**29. How is `done` generated?**
+A 4-bit Comparator checks whether the counter `t` equals 10 (3N-2 for N = 4); its "equal" output is `done`. `t` counts from 0 while `run` is set; the counter enable is `run AND NOT done`, so the counter stops at 10 and `done` stays high until the next Start. This is `done` high the cycle after t = 9, as in Verilog.
+
+**30. How does the design scale to 8x8?**
+Use 64 PE subcircuits, 16 ROMs, and 0..7 delay registers on rows and columns (56 delay registers in total). The counter and ROM address need 5 bits (3N-2 = 22 cycles) and the done constant becomes 22. The PE does not change, and 20-bit accumulators still work because 8 x 65025 = 520200 < 2^20. Only the drawing effort grows, which is why HDL with `generate` loops is easier to scale.
+
+**31. What is the difference between a circuit and an HDL design?**
+In Logisim I place and wire the components by hand: what I see is the structure, and I step it with clock ticks. In Verilog I describe the structure and behaviour in text, and a simulator (or a synthesis tool) builds it. HDL is easier to copy, parameterise (loops, `generate`) and test automatically with a testbench; a drawing is easier to explain visually. Both describe the same hardware here.
+
+**32. What does `clear` do?**
+`clear` = `Start AND NOT run`. It is high only while the circuit is idle and Start is pressed. It resets the accumulators, the `a_out`/`b_out` registers, the delay registers and the counter `t` to 0, so each run starts clean. In Logisim it is wired to the Clear pin of those parts (asynchronous), while in Verilog it acts at the clock edge; the result is the same.
+
+**33. How did I verify the Logisim circuit?**
+Against the Verilog reference model, in steps: (1) the PE alone (a = 3, b = 4 gives acc = 12, then 24); (2) the 2x2 array with hand-driven inputs gives [[19, 22], [43, 50]], the same as `docs/handtrace_2x2.md`; (3) for each test case, load the ROM images made by `make_rom.py`, press Start, tick 10 more times, check that `done` = 1 and that all 16 probes equal the expected C printed by the script (a triple loop checked by a second method). Cases: paper 2x2, identity, B identity, all ones, all 255, hand-picked and random. Each result goes in the "Logisim OK?" column of `logisim/test_cases.md`. (Fill in only after really running it.)

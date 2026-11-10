@@ -31,6 +31,31 @@ IDLE -> (start) RUN -> (t == 9) DONE -> (start) RUN
 clear pulses for one cycle on start; accumulators reset to 0.
 
 ## Tool note
-Simulator is Icarus Verilog 0.9.7. Use only basic Verilog-2001: plain
+The Verilog design is the verified reference model. It is simulated with
+Icarus Verilog 0.9.7. The circuit is also redrawn by hand in Logisim
+(version TODO-fill-in-version-used); see "Logisim implementation" below.
+For the Verilog: Use only basic Verilog-2001: plain
 always @(posedge clk), generate/genvar, +: part-selects. No SystemVerilog,
 no $clog2, no always_ff/logic, no ANSI-style tricks beyond simple port lists.
+
+## Logisim implementation
+The Logisim circuit must give the same results as the Verilog reference model.
+Same size (4x4), widths (8-bit inputs, 20-bit accumulators), dataflow and
+timing rule (PE(i,j) sees A[i][k] and B[k][j] at t = i + j + k), and the same
+10-cycle latency; done goes high when t = 10.
+
+Differences in how it is built (the behaviour is the same):
+- The skew is made by delay registers: ROMs hold the UNSKEWED rows of A and
+  columns of B (address t holds element t, zeros from address N up to 15), row i
+  has i 8-bit delay registers and column j has j of them. A delay of i cycles
+  turns A[i][t] into A[i][t-i].
+- The multiplier is 20 bits wide, and a and b are zero-extended from 8 to 20 bits
+  first, because a Logisim multiplier keeps only as many low bits as its width.
+- clear = Start AND NOT run; it uses the asynchronous Clear pin of the Registers
+  and the Counter. A new Start is accepted one tick after done.
+- The ROM images are made by logisim/make_rom.py; the build steps are in
+  docs/logisim_build_guide.md.
+
+Mapping: pe.v = PE subcircuit; systolic_array.v = 4x4 grid of PE subcircuits;
+control.v = run Register + Counter t + Comparator (t == 10) + ROMs + delay
+registers; top.v = main circuit.

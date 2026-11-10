@@ -1,11 +1,11 @@
 # Design and Verification of a 4x4 Systolic Array Matrix Multiplier
 
 Author: Abhiram Agaram (PES1UG25CS017)
-Team members: [Member 2 name], [Member 3 name], [Member 4 name]
+Team members: Akshay Swami, Amogha, Hrushikesh, Abhiram Agaram
 
 ## Abstract
 
-This report describes a Verilog-2001 implementation of a 4x4 output-stationary systolic array that multiplies two matrices of 8-bit unsigned integers into a matrix of 20-bit results. A small controller feeds the rows and columns with the right delays, so no skew buffers are needed. The multiplication completes in 10 clock cycles (3N - 2 for N = 4). The design is verified by a self-checking testbench with hardcoded matrices (identity, zeros, ones, maximum values, single non-zero cell) and 50 random matrix pairs, all compared with a software reference. All tests pass in simulation with [SIMULATOR NAME — fill in when confirmed].
+This report describes a Verilog-2001 implementation of a 4x4 output-stationary systolic array that multiplies two matrices of 8-bit unsigned integers into a matrix of 20-bit results. A small controller feeds the rows and columns with the right delays, so no skew buffers are needed. The multiplication completes in 10 clock cycles (3N - 2 for N = 4). The design is verified by a self-checking testbench with hardcoded matrices (identity, zeros, ones, maximum values, single non-zero cell) and 50 random matrix pairs, all compared with a software reference. All tests pass in Icarus Verilog 0.9.7. The Verilog design is the verified reference model; the same architecture is then redrawn by hand in Logisim (version [TODO-fill-in-version-used]) with ROMs, delay registers and a counter, and its results are compared with the reference values.
 
 ## 1. Introduction
 
@@ -84,7 +84,7 @@ The last pair reaches PE(3,3) at t = 9, so a multiplication takes 10 cycles = 3N
 - `clear` is a combinational pulse (`start && state != RUN`), so accumulators are already zero when the first product arrives at t = 0, and a `start` during a run is ignored.
 - The accumulator width is 20 bits: the maximum value 4 x 255 x 255 = 260100 needs 18 bits, so there is spare room.
 - Feeding zeros outside the valid index range is harmless, since 0 x anything = 0.
-- The simulator-specific commands are only in `scripts/run.sh`. Simulator used: [SIMULATOR NAME — fill in when confirmed].
+- The Verilog simulator commands are only in `scripts/run.sh` (Icarus Verilog 0.9.7). The Logisim circuit is built by hand following `docs/logisim_build_guide.md`; Logisim version: [TODO-fill-in-version-used].
 
 ## 6. Verification
 
@@ -105,6 +105,30 @@ Waveform screenshots:
 
 [INSERT SCREENSHOT: docs/waveforms/control_fsm.png] — `clear`, `state`, `t`, `done`.
 [INSERT SCREENSHOT: docs/waveforms/pe_2_1.png] — PE(2,1) inputs and accumulator showing A[2][k] and B[k][1] meeting at t = 3 + k.
+
+## 6a. Logisim implementation
+
+The Verilog design is the verified reference model. The same design is drawn by hand in Logisim so it can be shown as a circuit.
+
+| Verilog | Logisim part |
+|---------|--------------|
+| `pe.v` | `PE` subcircuit: two Bit Extenders (8 to 20 bits), 20-bit Multiplier, 20-bit Adder, 20-bit `acc` Register, two 8-bit Registers (`a_out`, `b_out`) |
+| `systolic_array.v` | 4x4 grid of `PE` subcircuits; the links are wires |
+| `control.v` state and counter | `run` Register, 4-bit Counter `t`, Comparator `t = 10` (= `done`), five gates |
+| `control.v` feeder | 8 ROMs addressed by `t`, with i delay Registers on row i and j on column j |
+| `A_flat`, `B_flat` | ROM contents, loaded from images made by `logisim/make_rom.py` |
+| `clear` | `Start AND NOT run`, to the Clear pins |
+| `done` | Comparator output |
+| `top.v` | `main` circuit |
+
+Main design points:
+
+- **Unskewed ROMs plus delay registers.** Each ROM lists a row of A (or a column of B) in order, and a counter `t` addresses all of them. A register delays by one clock, so i registers turn A[i][t] into A[i][t-i], which is the Verilog feeder rule. Zeros after the last element come from the unused ROM words, and cleared registers give zeros before the data starts.
+- **20-bit multiplier.** A Logisim Multiplier keeps only as many bits as its width, so the 8-bit inputs are zero-extended to 20 bits first. The low 20 bits then hold the whole product.
+- **Control.** `run` is set by Start, the counter counts while `run` and not `done`, and `done` is `t = 10`. The counter stops at 10, so it does not wrap.
+- **Procedure.** Load the 8 ROM images of a case, press Start, tick 11 times (one start tick and 10 run ticks), and compare the 16 probes with the expected C printed by `make_rom.py` (also in `logisim/test_cases.md`).
+
+Logisim test cases: paper 2x2 example, identity, B identity, all ones, all 255, hand-picked (A = 1..16, B = 16..1) and a fixed-seed random case. Results: [INSERT Logisim results: fill in the "Logisim OK?" column of `logisim/test_cases.md` after running each case]. [INSERT SCREENSHOT: docs/logisim/main_circuit.png] and [INSERT SCREENSHOT: docs/logisim/hand_picked_result.png].
 
 ## 7. Results
 
