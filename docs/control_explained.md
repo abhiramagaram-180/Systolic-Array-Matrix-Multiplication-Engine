@@ -125,3 +125,41 @@ Every PE has a register on its A output and on its B output (`a_out <= a_in`, `b
 Both equal `i + j + k`. Example: PE(2,1), k = 3. A[2][3] is fed to row 2 at t = 5 (table above); one hop later it is at PE(2,1) at t = 6. B[3][1] is fed to column 1 at t = 4; two hops later it is at PE(2,1) at t = 6. Both at t = 2 + 1 + 3 = 6. ✓
 
 The zeros fed outside the valid range are harmless: the PE multiplies by 0 and adds 0.
+
+## Controller Clock-Level Operation
+
+### Starting a multiplication
+
+1. The controller remains in IDLE while start is LOW.
+2. When start becomes HIGH, clear is asserted.
+3. At the next rising clock edge, all PE accumulators and forwarding registers are cleared.
+4. The FSM enters RUN.
+5. The feeder supplies the first set of matrix elements.
+
+### During computation
+
+- The cycle counter increments on every rising clock edge.
+- The feeder selects operands based on the current cycle.
+- The PEs perform multiplication and accumulation.
+- Zero is supplied when an index is outside the valid matrix range.
+
+### Completion
+
+When the previous counter value is 9, the FSM transitions to DONE.
+
+The done output becomes HIGH, indicating that the accumulated matrix result is ready.
+
+### Starting another multiplication
+
+When start is asserted in DONE:
+
+- clear becomes HIGH.
+- PE accumulators and forwarding registers are cleared.
+- The FSM transitions to RUN.
+- The next multiplication begins from cycle zero.
+
+The start input is expected to be a one-clock-cycle pulse.
+
+### Verification requirement
+
+A back-to-back test should perform two different matrix multiplications without asserting reset between them. Both results must match their expected matrix products independently.
